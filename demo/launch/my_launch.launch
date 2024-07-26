@@ -1,0 +1,16 @@
+<launch>
+
+   <!-- Launch the RealSense camera node -->
+   <include file="/home/ros/samet_ws/src/realsense-ros/realsense2_camera/launch/opensource_tracking.launch">
+
+   </include>
+
+   <!-- Launch the TF publisher node -->
+   <node pkg="demo" type="tf_publisher.py" name="tf_publisher_node" output="screen">
+      <param name="odom_param" value="param_value" />
+   </node>
+
+ 
+
+</launch>
+

@@ -1,0 +1,32 @@
+while (1) {//loopp
+	  if(fren == 1 && motor == 1){
+		  HAL_GPIO_WritePin(FREN_GPIO_Port, FREN_Pin, 1);
+		  motor = 0;
+	  }
+	  //velocity = update_vexlocity(velocity, target_vel, alpha);
+	  //HAL_Delay(100);
+	  user_pwm_setvalue_mosfet4(velocity,limit);
+	  user_pwm_setvalue_mosfet3(velocity,limit);
+	  user_pwm_setvalue_mosfet2(velocity,limit);
+	  user_pwm_setvalue_mosfet1(velocity,limit);
+
+	  HAL_Delay(10);
+      if (new_data_received) {
+    	  if(function_code == 6) {
+    		  write_command(slave_address, starting_address, length);
+          } else if(function_code == 16) {
+        	  write_multiple_command(slave_address, starting_address, length,value);
+          }else {
+        	  read_command(slave_address, starting_address, length, crc);
+    	  }
+          new_data_received = 0;
+      }
+	  if((modbusDevices[01].data[0] == 0 && modbusDevices[01].data[1] == 0 && modbusDevices[01].data[2] == 0 && modbusDevices[01].data[3] == 0)||
+		(modbusDevices[01].data[0] == 300 && modbusDevices[01].data[1] == 300 && modbusDevices[01].data[2] == 300 && modbusDevices[01].data[3] == 300)){
+		  HAL_GPIO_WritePin(FREN_GPIO_Port, FREN_Pin, 0);
+		  fren = 0;
+		  motor=1;
+	  }else{
+		  fren = 1;
+	  }
+  }

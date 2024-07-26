@@ -1,0 +1,23 @@
+<launch>
+    <!-- Include the opensource_tracking.launch file -->
+    <include file="/home/ros/machine/realsense-ros/realsense2_camera/launch/opensource_tracking.launch" />
+
+    <!-- Include the move_base.launch file -->
+    <include file="/home/ros/machine/demo/launch/move_base.launch" />
+
+    <!-- Run the tf_publisher.py node -->
+    <node pkg="demo" type="tf_publisher.py" name="tf_publisher" output="screen">
+        <param name="some_param" value="some_value" />  <!-- Add any required parameters here -->
+    </node>
+
+    <!-- Run the topic_to_usb.py node -->
+    <node pkg="demo" type="topic_to_usb.py" name="topic_to_usb" output="screen">
+        <param name="some_param" value="some_value" />  <!-- Add any required parameters here -->
+    </node>
+
+    <!-- Run the telop.py node -->
+    <node pkg="demo" type="telop.py" name="telop" output="screen">
+        <param name="some_param" value="some_value" />  <!-- Add any required parameters here -->
+    </node>
+</launch>
+
