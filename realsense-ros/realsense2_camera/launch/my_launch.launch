@@ -1,0 +1,34 @@
+<launch>
+    <!-- Arguments for camera options -->
+    <arg name="serial_no" default="" doc="serial number of the device"/>
+    <arg name="usb_port_id" default="" doc="port id of the device"/>
+    <arg name="device_type" default="" doc="type of the device"/>
+    <arg name="unite_imu_method" default="linear_interpolation" doc="Join the 2 IMU streams into one"/>
+    <arg name="json_file_path" default="" doc="Allows advanced configuration"/>
+    <arg name="enable_gyro" default="true"/>
+    <arg name="enable_accel" default="true"/>
+    <!-- Load the nodelet manager -->
+    <arg name="offline" default="false"/>
+
+    <include unless="$(arg offline)" file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <arg name="enable_gyro" value="$(arg enable_gyro)"/>
+        <arg name="enable_accel" value="$(arg enable_accel)"/>
+        <arg name="enable_depth" value="false"/>
+        <arg name="enable_infra1" value="false"/>
+        <arg name="enable_infra2" value="false"/>
+        <arg name="enable_color" value="false"/>
+        <arg name="serial_no" value="$(arg serial_no)"/>
+        <arg name="usb_port_id" value="$(arg usb_port_id)"/>
+        <arg name="device_type" value="$(arg device_type)"/>
+        <arg name="unite_imu_method" value="$(arg unite_imu_method)"/>
+        <arg name="json_file_path" value="$(arg json_file_path)"/>
+    </include>
+
+    <node pkg="imu_filter_madgwick" type="imu_filter_node" name="ImuFilter">
+        <param name="use_mag" type="bool" value="false"/>
+        <param name="_publish_tf" type="bool" value="false"/>
+        <param name="_world_frame" type="string" value="enu"/>
+        <remap from="/imu/data_raw" to="/camera/imu"/>
+    </node>
+</launch>
+

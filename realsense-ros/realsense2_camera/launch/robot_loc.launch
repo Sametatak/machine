@@ -1,0 +1,5 @@
+ <launch>
+  <include file="$(find robot_localization)/launch/ukf_template.launch"/>
+
+    <param name="/ukf_se/imu0" value="/imu/data"/>
+</launch>
