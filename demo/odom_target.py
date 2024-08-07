@@ -8,8 +8,8 @@ from angles import shortest_angular_distance
 from tf.transformations import euler_from_quaternion as efq
 
 ANGLE_REGION_THRESHOLD = 0.1
-MAX_ANG_VEL = 2.2
-
+MAX_ANG_VEL = 4
+MAX_VEL_LIN = 4
 class PIDController: 
     def __init__(self, kp, ki, kd):
         self.kp = kp
@@ -38,8 +38,8 @@ class PoseFollower:
         rospy.init_node('pose_follower')
 
         self.pose_sub = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.pose_callback)
-        self.odom_sub = rospy.Subscriber('/odom', Odometry, self.odom_callback)
-        self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        self.odom_sub = rospy.Subscriber('/odometry/filtered', Odometry, self.odom_callback)
+        self.cmd_vel_pub = rospy.Publisher('/move_base/cmd_vel', Twist, queue_size=10)
         self.yaw = 0.0
         self.target_pose = None
         self.current_pose = None
@@ -66,11 +66,11 @@ class PoseFollower:
             self.angle_to_goal = math.atan2(self.target_pose.position.y - self.current_pose.position.y,
                                        self.target_pose.position.x - self.current_pose.position.x)
             print(self.angle_to_goal)
-            twist.linear.x = self.controller_lin.update(0.0, distance/8, 1.0 / 20.0)
+            twist.linear.x = self.controller_lin.update(0.0, distance/3, 1.0 / 20.0)
             twist.angular.z = self.update_angeler_vel()
 
-            if twist.linear.x > 0.5:
-                twist.linear.x = 0.5
+            if twist.linear.x > MAX_VEL_LIN:
+                twist.linear.x =  MAX_VEL_LIN
             if twist.angular.z > 1.0:
                 twist.angular.z = 1.0
         else:
@@ -89,7 +89,7 @@ class PoseFollower:
             last_time = rospy.Time.now()
          
         vel = Twist()
-        vel.angular.z = min(MAX_ANG_VEL, self.controller_angle.update(0.0, diff/3, 1.0 / 20.0))
+        vel.angular.z = min(MAX_ANG_VEL, self.controller_angle.update(0.0, diff, 1.0 / 20.0))
         vel.angular.z = max(-MAX_ANG_VEL, vel.angular.z)
         return vel.angular.z
 

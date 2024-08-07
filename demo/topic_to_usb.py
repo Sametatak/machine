@@ -4,11 +4,8 @@ from geometry_msgs.msg import Twist
 import serial
 import threading
 import time
-import serial
-import rospy 
-import sys
-import struct as st
-import binascii
+import socket
+import json
 
 crcTable = [
     0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
@@ -44,38 +41,49 @@ crcTable = [
     0x4400, 0x84C1, 0x8581, 0x4540, 0x8701, 0x47C0, 0x4680, 0x8641,
     0x8201, 0x42C0, 0x4380, 0x8341, 0x4100, 0x81C1, 0x8081, 0x4040
 ]
-MAX_INPUT = 5
-class PIDController: 
+MAX_INPUT = 3
+
+class PIDController:
     def __init__(self, kp, ki, kd):
         self.kp = kp
         self.ki = ki
         self.kd = kd
         self.__integral = 0.0
         self.prev_error = 0.0
-    
+
     def update(self, actual, target, dt):
         error = target - actual
         d = self.kd * (error - self.prev_error) / dt
         self.__integral += self.ki * error * dt
         self.prev_error = error
-        
-        return self.__integral + self.kp*error + d
 
+        return self.__integral + self.kp * error + d
 
 class Modbus:
     def __init__(self):
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.bind(('192.168.6.123', 10005))
+        self.server_socket.listen(5)
+        self.server_socket.settimeout(0.1)
         self.motor1_power = 50
         self.motor2_power = 50
         self.motor3_power = 50
         self.motor4_power = 50
-        self.ser = serial.Serial('/dev/ttyUSB0', 115200,timeout=1)  # Adjust to your USB port
+        self.ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)  # Adjust to your USB port
         print("device connected")
         self.last_cmd_vel = None  # To store the last cmd_vel message
         self.stop_thread = threading.Event()  # Event to signal the thread to stop
         self.read_thread = threading.Thread(target=self.read_modbus_periodically)
+        #self.write_thread = threading.Thread(target=self.read_modbus_periodically)
+        self.emerge_stop_thread = threading.Thread(target=self.write_thread)
         self.read_thread.daemon = True
         self.read_thread.start()
+        self.error_count = 0
+        self.max_errors = 4
+        self.emerge_stop_thread.start()
+        #self.write_thread.start()
         rospy.init_node('cmd_vel_to_stm32', anonymous=True)
+        self.cmd_vel_timer = None
 
         try:
             self.listener()
@@ -87,32 +95,40 @@ class Modbus:
             self.ser.close()
 
     def callback(self, data):
-        if (self.last_cmd_vel is None or data.linear.x != self.last_cmd_vel.linear.x or data.angular.z != self.last_cmd_vel.angular.z) : 
+        if self.cmd_vel_timer:
+            self.cmd_vel_timer.cancel()
+        self.cmd_vel_timer = threading.Timer(1.0, self.cmd_vel_timeout)
+        self.cmd_vel_timer.start()
+
+        if self.last_cmd_vel is None or data.linear.x != self.last_cmd_vel.linear.x or data.angular.z != self.last_cmd_vel.angular.z:
             self.last_cmd_vel = data
             self.interpret(data.linear.x, data.angular.z)
             print("Motor 1 Byte:", self.motor1_power)
             print("Motor 2 Byte:", self.motor2_power)
             print("Motor 3 Byte:", self.motor3_power)
             print("Motor 4 Byte:", self.motor4_power)
-            self.multiple_write_command(self.motor1_power,self.motor2_power,self.motor3_power,self.motor4_power)
-            
-
-
-            #self.write_modbus_command(self.motor1_power)
+            self.multiple_write_command(self.motor1_power, self.motor2_power, self.motor3_power, self.motor4_power)
 
     def listener(self):
-        
         rospy.Subscriber("/move_base/cmd_vel", Twist, self.callback)
         rospy.spin()
+
+    def cmd_vel_timeout(self):
+        print("No cmd_vel message received for 1 second. Stopping motors.")
+        self.motor1_power = 0
+        self.motor2_power = 0
+        self.motor3_power = 0
+        self.motor4_power = 0
+        self.multiple_write_command(self.motor1_power, self.motor2_power, self.motor3_power, self.motor4_power)
 
     def interpret(self, linear_x, angular_z):
         wheelbase = 1.5  # distance between left and right wheels
 
         # Calculate motor speeds for differential drive
-        self.motor1_power = -linear_x + (angular_z * wheelbase / 2)+MAX_INPUT/2  # front right motor
-        self.motor2_power = -linear_x - (angular_z * wheelbase / 2)+MAX_INPUT/2  # front left motor
-        self.motor3_power = linear_x - (angular_z * wheelbase / 2)+MAX_INPUT/2  # rear right motor
-        self.motor4_power = linear_x + (angular_z * wheelbase / 2)+MAX_INPUT/2 # rear left motor
+        self.motor1_power = -linear_x + (angular_z * wheelbase / 2) + MAX_INPUT / 2  # front right motor
+        self.motor2_power = -linear_x - (angular_z * wheelbase / 2) + MAX_INPUT / 2  # front left motor
+        self.motor3_power = linear_x - (angular_z * wheelbase / 2) + MAX_INPUT / 2  # rear right motor
+        self.motor4_power = -linear_x - (angular_z * wheelbase / 2) + MAX_INPUT / 2  # rear left motor
 
         # Normalize motor speeds to be within the range -100 to 100
         self.motor1_power = self.normalize(self.motor1_power)
@@ -120,18 +136,15 @@ class Modbus:
         self.motor3_power = self.normalize(self.motor3_power)
         self.motor4_power = self.normalize(self.motor4_power)
 
-
-
-
     def multiple_write_command(self, motor1, motor2, motor3, motor4_power):
         command = [0x01, 0x10, 0x00, 0x00, 0x00, 0x04, 0x08]  # Preset Multiple Registers command
         max_pwm = 256
-        factor = max_pwm/256.0
-        
-        motor1_value = abs(int(motor1 * 65535 / 25600*factor))  # Scaling motor1 to 0-65535 range
-        motor2_value = abs(int(motor2 * 65535 / 25600*factor))  # Scaling motor2 to 0-65535 range
-        motor3_value = abs(int(motor3 * 65535 / 25600*factor))  # Scaling motor3 to 0-65535 range
-        motor4_value = abs(int(motor4_power * 65535 / 25600*factor))  # Scaling motor4_power to 0-65535 range
+        factor = max_pwm / 256.0
+
+        motor1_value = abs(int(motor1 * 65535 / 25600 * factor))  # Scaling motor1 to 0-65535 range
+        motor2_value = abs(int(motor2 * 65535 / 25600 * factor))  # Scaling motor2 to 0-65535 range
+        motor3_value = abs(int(motor3 * 65535 / 25600 * factor))  # Scaling motor3 to 0-65535 range
+        motor4_value = abs(int(motor4_power * 65535 / 25600 * factor))  # Scaling motor4_power to 0-65535 range
 
         # Extract high and low bytes for each motor value
         motor1_high_byte = (motor1_value >> 8) & 0xFF
@@ -164,14 +177,6 @@ class Modbus:
         # Debug: Print the command to be sent
         print("Write Multiple Modbus Command:", [f"{byte:02X}" for byte in command_bytes])
 
-        # Send the command
-        
-
-        # Read the response
-        #response = self.ser.read(8)  # Response for Write Multiple Registers is 8 bytes
-        #print("Write Multiple Modbus Response:", [f"{byte:02X}" for byte in response])
-
-
     def get_crc_low_high(self, buffer):
         crc = self.calculate_crc(buffer)
         low_byte = crc & 0xFF
@@ -193,38 +198,9 @@ class Modbus:
         elif normalized_value < 1:
             normalized_value = 1
         return normalized_value
-        """
-    def read_modbus_command(self):
-        command = [0x01, 0x03, 0x00, 0x00, 0x00, 0x50]  # Read Holding Registers command
-        low_byte, high_byte = self.get_crc_low_high(command)
-        command.append(low_byte)
-        command.append(high_byte)
 
-        # Convert the command list to a byte array
-        command_bytes = bytearray(command)
-        self.ser.write(command_bytes)
-
-        # Read the first 3 bytes to get the header
-        header = self.ser.read(3)
-        if len(header) < 3:
-            raise Exception("Failed to read the Modbus response header")
-
-        # Parse the header to determine the length of the remaining response
-        byte_count = header[2]
-        print(byte_count)
-        
-        remaining_bytes = self.ser.read(byte_count + 2)
-        if len(remaining_bytes) < (byte_count + 2):
-            raise Exception("Failed to read the full Modbus response")
-
-        
-        response = header + remaining_bytes
-
-        print("Read Modbus Response:", response)
-        return remaining_bytes
-    """
-    def read_modbus_command(self):
-        command = [0x01, 0x03, 0x00, 0x00, 0x00, 0x32]  # Read Holding Registers command
+    def read_modbus_command(self, number):
+        command = [0x01, 0x03, 0x00, 0x00, 0x00, number]  # Read Holding Registers command
         low_byte, high_byte = self.get_crc_low_high(command)
         command.append(low_byte)
         command.append(high_byte)
@@ -236,29 +212,29 @@ class Modbus:
         header = [f"{byte:02X}" for byte in header]
         my_int = int(header[2], 16)
         print(my_int)
-        #header = [f"{byte:02X}" for byte in header]
+        # header = [f"{byte:02X}" for byte in header]
         if len(header) < 3:
             raise Exception("Failed to read the Modbus response header")
-        response = self.ser.read(my_int+2)
+        response = self.ser.read(my_int + 2)
         response = [f"{byte:02X}" for byte in response[:-2]]
-        int_list = [int(response[i] + response[i+1], 16) for i in range(0, len(response), 2)]
-        print("MOTORS:",int_list)
-        print("MOTOR1=",int_list[4])
-        
+        int_list = [int(response[i] + response[i + 1], 16) for i in range(0, len(response), 2)]
+        print("MOTORS:", int_list)
+        print("MOTOR1=", int_list[4])
+
     def write_modbus_command(self, motor1):
-        command = [0x01, 0x06, 0x00, 0x00]  # Write Single Register command
-        
+        command = [0x01, 0x06, 0x00, 0x08]  # Write Single Register command
+
         # Convert motor1 to an appropriate integer value within the range of 0-65535
-        motor1_value = abs(int(motor1 * 65535 / 25600)) # Scaling motor1 to 0-65535 range
-        motor1_value = motor1_value*2
+        value = motor1  # Scaling motor1 to 0-65535 range
+
         # Extract high and low bytes
         high_byte = (motor1_value >> 8) & 0xFF
         low_byte = motor1_value & 0xFF
-        
+
         # Append the high and low bytes to the command
         command.append(high_byte)
         command.append(low_byte)
-        
+
         # Calculate and append the CRC
         crc_low, crc_high = self.get_crc_low_high(command)
         command.append(crc_low)
@@ -266,26 +242,80 @@ class Modbus:
 
         # Convert the command list to a byte array
         command_bytes = bytearray(command)
-        
+
         # Debug: Print the command to be sent
         print("Write Modbus Command:", [f"{byte:02X}" for byte in command_bytes])
 
         # Send the command
         self.ser.write(command_bytes)
 
-        # Read the response
-
     def shutdown_callback(self):
         rospy.loginfo("Shutting down node...")
+
 
     def read_modbus_periodically(self):
         while not self.stop_thread.is_set():
             try:
-                self.read_modbus_command()
-                time.sleep(0.5)  # Adjust the sleep time as needed
+                self.read_modbus_command(20)
+                self.error_count = 0  # Başarılı okuma durumunda hata sayacını sıfırla
+                time.sleep(0.1)  # İhtiyaca göre uyku süresini ayarlayın
             except Exception as e:
                 print(f"Error in read thread: {e}")
 
+                # Belirli hata mesajını kontrol et
+                if 'list index out of range' in str(e):
+                    self.error_count += 1
+                    if self.error_count > self.max_errors:
+                        self.reconnect_serial()
+                        self.error_count = 0  # Hata sayacını sıfırla
+                elif 'Input/output error' in str(e):
+                    self.reconnect_serial()
+                    self.error_count = 0
+
+    def reconnect_serial(self):
+        while not self.stop_thread.is_set():
+            try:
+                self.ser.close()
+                time.sleep(1)  # Wait before trying to reconnect
+                self.ser.open()
+                print("Reconnected to serial device.")
+                return
+            except Exception as e:
+                print(f"Reconnection attempt failed: {e}")
+                time.sleep(1)
+    
+    def tcp_thread(self):
+        while not self.stop_thread.is_set():
+            try:
+                self.tcp_listen()
+                time.sleep(0.1)  # Adjust the sleep time as needed
+            except Exception as e:
+                print(f"Error in read thread: {e}")
+    
+    def write_thread(self):
+        while not self.stop_thread.is_set():
+            try:
+                self.multiple_write_command(self.motor1_power, self.motor2_power, self.motor3_power, self.motor4_power)
+                time.sleep(3)  # Adjust the sleep time as needed
+            except Exception as e:
+                print(f"Error in read thread: {e}")
+
+    def tcp_listen(self):
+        try:
+            client_socket, client_address = self.server_socket.accept()
+            print(f"Connection from {client_address}")
+
+            data = client_socket.recv(1024)
+            print("---", data)
+            if data:
+                json_data = data.decode('utf-8')
+                parsed_data = json.loads(json_data)
+
+                if parsed_data['stop'] == True:
+                    self.multiple_write_command(50, 50, 50, 50)
+                    print("EMERGENCY_STOP")
+        except socket.timeout:
+            pass
 
 if __name__ == "__main__":
     modbus = Modbus()
