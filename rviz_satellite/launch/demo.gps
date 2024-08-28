@@ -1,0 +1,15 @@
+header:
+  seq: 999
+  stamp:
+    secs: 1435607489
+    nsecs: 924811809
+  frame_id: base_link
+status: 
+  status: 1
+  service: 1
+latitude: 41.11484
+longitude: 29.011332666666668
+altitude: 91.3
+position_covariance: [0.068121, 0.0, 0.0, 0.0, 0.068121, 0.0, 0.0, 0.0, 1.089936]
+position_covariance_type: 1
+
