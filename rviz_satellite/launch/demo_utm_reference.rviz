@@ -43,7 +43,7 @@ Visualization Manager:
       Draw Behind: false
       Enabled: true
       Name: AerialMapDisplay
-      Object URI: https://maps.googleapis.com/maps/api/staticmap?maptype=satellite&center={lat},{lon}&zoom={z}&size=256x256&key=AIzaSyCG2VzZ8MwOYf229DQjITkTp1yOBmJemhg
+      Object URI: https://maps.googleapis.com/maps/api/staticmap?maptype=satellite&center={lat},{lon}&zoom={z}&size=256x256&key=
       Topic: /gps/fix
       Value: true
       Map transform type: Explicit UTM Frame
