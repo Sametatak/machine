@@ -1,16 +1,38 @@
 <launch>
+    <!-- Include dual EKF + NavSat example launch -->
+    <include file="$(find robot_localization)/launch/dual_ekf_navsat_example.launch"/>
 
-   <!-- Launch the RealSense camera node -->
-   <include file="/home/ros/samet_ws/src/realsense-ros/realsense2_camera/launch/opensource_tracking.launch">
+    <!-- Configure EKF (odometry and IMU) -->
+    <param name="/ukf_se/frequency" value="100"/>
+    <param name="/ukf_se/base_link_frame" value="camera_link"/>
+    <param name="/ukf_se/odom0" value="rtabmap/odom"/>
+    <rosparam param="/ukf_se/odom0_config">[true, true, true,
+                                            true, true, true,
+                                            false, false, false,
+                                            false, false, false,
+                                            false, false, false]
+    </rosparam>
+    <param name="/ukf_se/odom0_relative" value="true"/>
+    <param name="/ukf_se/odom0_pose_rejection_threshold" value="10000000"/>
+    <param name="/ukf_se/odom0_twist_rejection_threshold" value="10000000"/>
 
-   </include>
+    <param name="/ukf_se/imu0" value="/imu/data"/>
+    <rosparam param="/ukf_se/imu0_config">[false, false, false,
+                                           true,  true,  true,
+                                           true,  true,  true,
+                                           false, false, false,
+                                           false, false, false]
+    </rosparam>
+    <param name="/ukf_se/imu0_differential" value="true"/>
+    <param name="/ukf_se/imu0_relative" value="false"/>
+    <param name="/ukf_se/use_control" value="false"/>
 
-   <!-- Launch the TF publisher node -->
-   <node pkg="demo" type="tf_publisher.py" name="tf_publisher_node" output="screen">
-      <param name="odom_param" value="param_value" />
-   </node>
-
- 
-
+    <!-- Add GPS data to the second EKF instance -->
+    <param name="/ekf_se_odom/gps0" value="/gps/fix"/>
+    <rosparam param="/ekf_se_odom/gps0_config">[true, true, false,
+                                                false, false, false,
+                                                false, false, false,
+                                                false, false, false,
+                                                false, false, false]
+    </rosparam>
 </launch>
-

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<robot name="simple_cube" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Base link as a simple cube, positioned above the plane -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.8 0.5 0.5"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0 0 1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.8 0.5 0.5"/>
+      </geometry>
+    </collision>
+    <!-- No inertia specified to avoid KDL issues -->
+  </link>
+
+</robot>

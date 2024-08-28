@@ -1,0 +1,12 @@
+<launch>
+  <arg name="x" default="0.0" />
+  <arg name="y" default="0.0" />
+  <arg name="yaw" default="0.0" />
+
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find demo)/map/demo_map.yaml" output="screen">
+
+  <param name="x" value="$(arg x)" />
+  <param name="y" value="$(arg y)" />
+  <param name="yaw" value="$(arg yaw)" />
+  </node>
+</launch>

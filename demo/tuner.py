@@ -53,12 +53,12 @@ class PIDController:
 class Rotate():
     def __init__(self):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.bind(('192.168.6.123', 10001))
+        self.server_socket.bind(('localhost', 10001))
         self.server_socket.listen(5)
         self.server_socket.settimeout(0.1)  # Set timeout for the socket
 
         print("Start rotate state")
-        msg = rospy.wait_for_message("/imu/data", Imu)
+        msg = rospy.wait_for_message("/imu_bosch/data", Imu)
         
         self.controller = PIDController(2.5, 0.0000, 1.1)
         initial_yaw = self.get_angle(msg)
@@ -68,7 +68,7 @@ class Rotate():
 
         self.cmd_pub = rospy.Publisher("/move_base/cmd_vel", Twist, queue_size=1)
         float_sub = rospy.Subscriber("/float_value", Float32, self.float_callback)
-        imu_sub = rospy.Subscriber("/imu/data", Imu, self.imu_callback)
+        imu_sub = rospy.Subscriber("/imu_bosch/data", Imu, self.imu_callback)
         pid_sub = rospy.Subscriber("/pid_params", PidConfiguration, self.pid_callback)
         
         angle_region_threshold = 0.2
@@ -82,7 +82,7 @@ class Rotate():
             self.target_angle += self.angle_update
             self.angle_update = 0
             diff = shortest_angular_distance(self.yaw, self.target_angle)
-            #print("yaw", self.yaw, "target", self.target_angle, "err", diff)
+            print("yaw", self.yaw *90 )
             if abs(diff) >= angle_region_threshold:
                 last_time = rospy.Time.now()
                 
