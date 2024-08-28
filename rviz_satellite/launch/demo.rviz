@@ -46,7 +46,7 @@ Visualization Manager:
       Map Frame: map
       Map transform type: NavSatFix Messages and Map Frame
       Name: AerialMapDisplay
-      Object URI: https://maps.googleapis.com/maps/api/staticmap?maptype=satellite&center={lat},{lon}&zoom={z}&size=256x256&key=AIzaSyCG2VzZ8MwOYf229DQjITkTp1yOBmJemhg
+      Object URI: https://maps.googleapis.com/maps/api/staticmap?maptype=satellite&center={lat},{lon}&zoom={z}&size=256x256&key=
       Topic: /gps/fix
       UTM Frame: utm
       UTM Zone: -1
