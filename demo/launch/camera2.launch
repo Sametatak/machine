@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="offline"          default="false"/>
+
+    <!-- Include RealSense camera launch file -->
+    <include unless="$(arg offline)" 
+        file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <arg name="align_depth" value="true"/>
+        <arg name="linear_accel_cov" value="1.0"/>
+        <arg name="unite_imu_method" value="linear_interpolation"/>
+    </include>
+
+    <node pkg="imu_filter_madgwick" type="imu_filter_node" name="ImuFilter">
+        <param name="use_mag" type="bool" value="false" />
+        <param name="publish_tf" type="bool" value="false" />
+        <param name="_world_frame" type="string" value="enu" />
+        <remap from="/imu/data_raw" to="/imu_data"/>
+    </node>
+    
+    <!-- Include RTAB-Map launch file -->
+    <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
+        <arg name="args" value="--delete_db_on_start"/>
+        <arg name="rgb_topic" value="/camera/color/image_raw"/>
+        <arg name="depth_topic" value="/camera/aligned_depth_to_color/image_raw"/>
+        <arg name="camera_info_topic" value="/camera/color/camera_info"/>
+        <arg name="depth_camera_info_topic" value="/camera/depth/camera_info"/>
+        <arg name="rtabmapviz" value="false"/>
+        <!--arg name="visual_odometry"          default="false"/-->         
+        <arg name="icp_odometry"             default="false"/>
+        <arg name="frame_id"             default="/base_link"/>
+        <arg name="publish_tf_odom"          default="false"/>
+        <arg name="publish_tf_map"          default="false"/>
+        <arg name="map_frame_id"            default="map"/>
+        <arg name="rviz" value="false"/> <!-- Set to false to avoid double RViz instances -->
+    </include>
+    <!-- Include UKF launch file -->
+    <include file="$(find robot_localization)/launch/ukf_template.launch"/>
+    <param name="/ukf_se/frequency" value="100"/>
+    <param name="/ukf_se/base_link_frame" value="base_link"/>
+    <param name="/ukf_se/odom_frame" value="odom"/>
+    <param name="publish_tf"  value="false" />
+    <param name="/ukf_se/world_frame" value="odom"/>
+    <param name="/ukf_se/global_frame" value="map"/>
+     <param name="child_frame_id" value="base_link"/>
+    <param name="/ukf_se/odom0" value="rtabmap/odom"/>
+    
+    <rosparam param="/ukf_se/odom0_config">[true,true,true,
+                                            true,true,true,
+                                            false,false,false,
+                                            false, false, false,
+                                            false, false, false]
+    </rosparam>
+    <param name="/ukf_se/odom0_relative" value="true"/>
+    <param name="/ukf_se/odom0_pose_rejection_threshold" value="10000000"/>
+    <param name="/ukf_se/odom0_twist_rejection_threshold" value="10000000"/>
+
+    <param name="/ukf_se/imu0" value="/imu/data"/>
+    <rosparam param="/ukf_se/imu0_config">[false, false, false,
+                                           true,  true,  true,
+                                           true,  true,  true,
+                                           false, false, false,
+                                           false, false, false]
+    </rosparam>
+    <param name="/ukf_se/imu0_differential" value="true"/>
+    <param name="/ukf_se/imu0_relative" value="false"/>
+    <param name="/ukf_se/use_control" value="false"/>
+<!--
+ <node pkg="robot_localization" type="navsat_transform_node" name="navsat_transform_node" output="screen">
+ <rosparam command="load" file="$(find robot_localization)/params/navsat_transform_template.yaml" />
+
+    <param name="frequency" value="30.0" />
+
+    <remap from="/fix" to="/gps/fix" />
+
+    
+    <param name="magnetic_declination_radians" value="0.0" />
+    <param name="yaw_offset" value="1.5708" />
+    <param name="base_link_frame" value="base_link"/>
+    <param name="odom_frame" value="odom"/>
+    <param name="map_frame" value="map"/>
+    <param name="broadcast_cartesian_transform" value="true"/>
+    <param name="broadcast_utm_transform" value="true"/>
+    <param name="world_frame" value="map"/>
+    <param name="child_frame_id" value="base_link"/>
+
+
+    <param name="broadcast_tf" value="true" />
+    <param name="use_odometry" value="true" />
+    <param name="publish_filtered_gps" value="true" />
+  </node>
+  -->
+   <!-- node pkg="tf2_ros" type="static_transform_publisher" name="base_link_f_dummy" args="0 0 0 0 0 0 world base_link_f" / -->
+    <!-- node pkg="tf2_ros" type="static_transform_publisher" name="static_tf_fake" args="0 0 0 0 0 0 base_link gps_frame" / -->
+    <node pkg="tf" type="static_transform_publisher" name="baglama" args="0.45 0 0.52 0 0 0 1 base_link camera_link 100" />
+    <!-- node pkg="tf" type="static_transform_publisher" name="baglama2" args="0 0 0 0 0 0 1 map odom_filtered 100" / -->
+    <!-- node pkg="tf" type="static_transform_publisher" name="baglama3" args="0 0 0 0 0 0 1 odom base_link  100" / -->
+    <!-- RViz node -->
+     <node pkg="tf2_ros" type="static_transform_publisher" name="static_tf_fake" args="0 0 0 0 0 0 base_link gps" />
+     <node pkg="tf2_ros" type="static_transform_publisher" name="static_tf_fake_imu" args="0 0.2 1 -1.5707963 1.5707963 0 base_link camera_imu_optical_frame" />
+     <node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="-774408.8700029989 -4536692.804125237 0 0 0 -0.011610094499259966 0.9999326005815183 map utm" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find demo)/rviz/rviz.rviz" output="screen"/>
+     <include file="$(find depthimage_to_laserscan)/launch/launchfile_sample.launch"/>
+</launch>

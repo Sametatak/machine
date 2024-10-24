@@ -34,7 +34,7 @@ oscillation_timeout: 10.0
 oscillation_distance: 0.2
 
 # local planner - default is trajectory rollout
-base_local_planner: "dwa_local_planner/DWAPlannerROS"
+
 
 base_global_planner: "navfn/NavfnROS" #alternatives: global_planner/GlobalPlanner, carrot_planner/CarrotPlanner
 
@@ -43,6 +43,29 @@ base_global_planner: "navfn/NavfnROS" #alternatives: global_planner/GlobalPlanne
 ## recovery behaviors; we avoid spinning, but we need a fall-back replanning
 recovery_behavior_enabled: false
 
+base_local_planner: "trajectory_planner/TrajectoryPlannerROS"
+
+TrajectoryPlannerROS:
+
+  max_vel_x: 0.8
+  min_vel_x: 0.1
+  max_vel_theta: 1.0
+  min_in_place_vel_theta: 0.4
+  acc_lim_x: 0.5
+  acc_lim_theta: 1.0
+
+  yaw_goal_tolerance: 0.6
+  xy_goal_tolerance: 1
+  latch_xy_goal_tolerance: true
+  
+  sim_time: 1.0
+  vx_samples: 6
+  vtheta_samples: 20
+
+  path_distance_bias: 60.0
+  goal_distance_bias: 24.0
+  occdist_scale: 0.8
+  oscillation_reset_dist: 0.05
 #recovery_behaviors:
 #  - name: 'super_conservative_reset1'
 #    type: 'clear_costmap_recovery/ClearCostmapRecovery'

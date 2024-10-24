@@ -58,8 +58,7 @@ THE SOFTWARE.
         <param name="base_local_planner/odom_topic" value="$(arg odom_topic)"/>
 
         <remap from="cmd_vel" to="move_base/cmd_vel"/>
-        <!-- remap from="map" to="/map" / -->
-        <remap from="map" to="rtabmap/grid_map"/>
+        <remap from="map" to="rtabmap/grid_map" />
         <remap from="/odom" to="odometry/filtered" />
     </node>
 </launch>

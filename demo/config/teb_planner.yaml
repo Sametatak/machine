@@ -25,7 +25,7 @@ TebLocalPlannerROS:
 
  odom_topic: odom
  map_frame: /map
-    
+ 
  # Trajectory
   
  teb_autosize: True
@@ -50,16 +50,16 @@ TebLocalPlannerROS:
 
  # GoalTolerance
     
- xy_goal_tolerance: 0.2
- yaw_goal_tolerance: 0.2
+ xy_goal_tolerance: 0.02
+ yaw_goal_tolerance: 2
  free_goal_vel: False
     
  # Obstacles
     
- min_obstacle_dist: 0.15
- include_costmap_obstacles: False
- costmap_obstacles_behind_robot_dist: 0.05
- inflation_dist: 0.1
+ min_obstacle_dist: 0.8
+ include_costmap_obstacles: true
+ costmap_obstacles_behind_robot_dist: 0.3
+ inflation_dist: 0.66
  obstacle_poses_affected: 30
  costmap_converter_plugin: ""
  costmap_converter_spin_thread: True
@@ -96,4 +96,4 @@ TebLocalPlannerROS:
  h_signature_threshold: 0.1
  obstacle_keypoint_offset: 0.1
  obstacle_heading_threshold: 0.45
- visualize_hc_graph: False
+ visualize_hc_graph: true
